@@ -685,7 +685,7 @@ def fit_with_dynamic_params(var_name, x_data, y_data, y_err, param_bounds, p_val
             strategy=strategy, 
             tol=tolerance, 
             maxiter=max_iterations,
-            seed=np.random.randint(2**32 - 1)  # Ensure reproducibility with random seed
+            seed=np.random.randint(2**31 - 1)  # Ensure reproducibility with random seed
         )
         
         print(f"Optimization result - Success: {result.success}, Message: {result.message}")
