@@ -636,6 +636,7 @@ def load_analysis_data(analysis_scope):
         "dis_w_min": DIS_W_MIN if DIS_DATA_MODE == "source_group" else None,
         "dis_uncut_source_keys": DIS_UNCUT_SOURCE_KEYS if DIS_DATA_MODE == "source_group" else None,
         "dis_current_source": DIS_CURRENT_SOURCE if DIS_DATA_MODE == "source_group" else "all_cut",
+        "manifest_path": "source_manifest_proton_dis.json"
     }
     if DATASET_MODE == "current":
         load_data_kwargs.update(

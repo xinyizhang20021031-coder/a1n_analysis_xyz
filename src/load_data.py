@@ -478,7 +478,7 @@ def _print_source_group_splash(dataset_mode, analysis_scope, dis_data_mode, dis_
 def load_data(dataset_mode="legacy", g1f1_current_path=None, dis_current_path=None, analysis_scope="full",
               dis_data_mode="legacy_combined_csv", dis_source_group=None, dis_w_min=None,
               dis_uncut_source_keys=None, dis_current_source="all_cut",
-              g1f1_2025_path=None, dis_2025_path=None, dis_2025_source=None):
+              g1f1_2025_path=None, dis_2025_path=None, dis_2025_source=None, manifest_path=None):
 
     dataset_mode = normalize_dataset_mode(dataset_mode)
     if g1f1_current_path is None:
@@ -508,7 +508,7 @@ def load_data(dataset_mode="legacy", g1f1_current_path=None, dis_current_path=No
         )
 
     if dis_data_mode == "source_group":
-        manifest = load_source_manifest()
+        manifest = load_source_manifest(manifest_path or "source_manifest_3he_dis.json")
         source_group = resolve_source_group_name(dataset_mode, analysis_scope, dis_source_group or DEFAULT_SOURCE_GROUP)
         bundle = build_3he_g1f1_group_bundle(
             source_group,
