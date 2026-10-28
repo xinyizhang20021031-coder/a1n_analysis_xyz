@@ -11,6 +11,18 @@ from functions import nachtmann_x
 from utility import prefix_generated_output_name, project_display_path, project_path, src_path
 
 MANIFEST_FILENAME = "source_manifest_3he_dis.json"
+TARGET_CONFIGS = {
+    "proton": {
+        "manifest_filename": "source_manifest_proton_dis.json",
+        "default_w_min": 1.5,
+        "display_name": "Proton Target"
+    },
+    "he3": {
+        "manifest_filename": "source_manifest_he3_dis.json",
+        "default_w_min": 2.0,  
+        "display_name": "3He Target"
+    }
+}
 DEFAULT_SOURCE_GROUP = "auto"
 FULL_ANALYSIS_SUPPORT_SOURCE_KEYS = ("e94010", "e97110", "psolv_e01012_g1g2")
 DATASET_MODE_ALIASES = {"2025": "current"}
@@ -104,9 +116,13 @@ SOURCE_GROUPS = {
         "a1n_all",
     ],
 }
+SOURCE_GROUPS["proton_pilot"] = [
+    "e155",
+    "smc",
+]
 for group_name, source_keys in list(SOURCE_GROUPS.items()):
     full_group_name = f"full_{group_name}"
-    SOURCE_GROUPS[full_group_name] = list(source_keys) + list(FULL_ANALYSIS_SUPPORT_SOURCE_KEYS)
+    SOURCE_GROUPS[full_group_name] = list(source_keys) # + list(FULL_ANALYSIS_SUPPORT_SOURCE_KEYS)
 for legacy_group_name, canonical_group_name in SOURCE_GROUP_ALIASES.items():
     if canonical_group_name in SOURCE_GROUPS:
         SOURCE_GROUPS[legacy_group_name] = list(SOURCE_GROUPS[canonical_group_name])
@@ -114,6 +130,14 @@ for legacy_group_name, canonical_group_name in SOURCE_GROUP_ALIASES.items():
 
 def manifest_path():
     return src_path(MANIFEST_FILENAME)
+# def manifest_path(target="he3"):
+#     target = str(target).strip().lower()
+#     if target not in TARGET_CONFIGS:
+#         supported = ", ".join(sorted(TARGET_CONFIGS))
+#         raise ValueError(f"Unsupported target '{target}'. Expected one of: {supported}.")
+#     if "manifest_filename" not in TARGET_CONFIGS[target]:
+#         raise ValueError(f"Target '{target}' is missing the 'manifest_filename' configuration.")
+#     return src_path(TARGET_CONFIGS[target]["manifest_filename"])
 
 
 def normalize_dataset_mode(dataset_mode):
@@ -129,8 +153,19 @@ def display_source_key(source_key):
     return key
 
 
+# def load_source_manifest(target="he3", path=None):
 def load_source_manifest(path=None):
     candidate_paths = []
+    # if target is None:
+    #     if path is not None:
+    #         candidate_paths.append(path)
+    #     else:
+    #         candidate_paths.append(project_path("data", "source_manifest_3he_dis.json"))
+    # else:
+    #     candidate_paths.append(manifest_path(target=target))
+    #     candidate_paths.append(project_path("data", TARGET_CONFIGS[target]["manifest_filename"]))
+    #     if path is not None:
+    #         print(f"Cannot specify both target '{target}' and path '{path}' for source manifest. Target will take precedence.")
     if path is not None:
         candidate_paths.append(path)
     candidate_paths.append(manifest_path())
@@ -145,6 +180,7 @@ def load_source_manifest(path=None):
     if manifest_file is None:
         searched = ", ".join(project_display_path(candidate) for candidate in candidate_paths if candidate)
         raise FileNotFoundError(
+            # f"Could not locate the {target.upper()} DIS source manifest. "
             "Could not locate the 3He DIS source manifest. "
             f"Searched: {searched}."
         )
@@ -152,6 +188,7 @@ def load_source_manifest(path=None):
     with open(manifest_file, "r", encoding="utf-8") as handle:
         manifest = json.load(handle)
     if "sources" not in manifest:
+        # raise ValueError(f"{target.upper()} DIS source manifest is missing the top-level 'sources' mapping.")
         raise ValueError("3He DIS source manifest is missing the top-level 'sources' mapping.")
     return manifest
 
@@ -310,6 +347,13 @@ def _build_standard_canonical_frame(raw_df, source_key, source_group, source_con
         "parser": source_config.get("parser", "csv"),
         "raw_rows": int(len(raw_df)),
     }
+    # print(canonical_df.columns)
+    # print(canonical_df.head())
+    # print("N =", len(canonical_df))
+
+    # print("x range:", canonical_df["X"].min(), canonical_df["X"].max())
+    # print("Q2 range:", canonical_df["Q2"].min(), canonical_df["Q2"].max())
+    # print("W range:", canonical_df["W"].min(), canonical_df["W"].max())
     return canonical_df, metadata
 
 
@@ -509,6 +553,7 @@ def build_3he_g1f1_group_bundle(
         )
 
     g1f1_df = pd.concat(full_frames, ignore_index=True) if full_frames else pd.DataFrame(columns=CANONICAL_COLUMNS)
+    # print("Details of g1f1_df:", g1f1_df.head())
     dis_df = pd.concat(dis_frames, ignore_index=True) if dis_frames else pd.DataFrame(columns=CANONICAL_COLUMNS)
 
     metadata = {

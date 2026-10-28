@@ -603,7 +603,8 @@ def _plot_active_dis_fit(dis_fit_result, dis_df, x_dense, q2_dense, pdf):
 
     axs[0].set_xlabel("x", fontsize=config["font_sizes"]["x_axis"])
     axs[0].set_ylabel("$g_1F_1$", fontsize=config["font_sizes"]["y_axis"])
-    axs[0].set_ylim(-0.04, 0.04)
+    # axs[0].set_ylim(-0.04, 0.04)
+    axs[0].set_ylim(-1.00, 1.00)
     axs[0].legend(fontsize=config["font_sizes"]["legend"], frameon=config["legend"]["frame_on"])
 
     if config["grid"]["enabled"]:
@@ -639,7 +640,7 @@ def _plot_active_dis_fit(dis_fit_result, dis_df, x_dense, q2_dense, pdf):
     plt.close(fig)
 
 
-def _plot_dis_fit_comparison(fit_results, dis_df, x_dense, q2_dense, pdf):
+def _plot_dis_fit_comparison(fit_results, dis_df, x_dense, q2_dense, pdf, resolved_source_group=None):
     with open(src_path("config.json"), "r") as handle:
         config = json.load(handle)
 
@@ -679,7 +680,10 @@ def _plot_dis_fit_comparison(fit_results, dis_df, x_dense, q2_dense, pdf):
         )
 
     axs[0].set_xlabel("x", fontsize=config["font_sizes"]["x_axis"])
-    axs[0].set_ylabel("$g_1^{^{3}He}/F_1^{^{3}He}$", fontsize=config["font_sizes"]["y_axis"])
+    if resolved_source_group is "proton_pilot":
+        axs[0].set_ylabel('$g_1^{p}/F_1^{p}$', fontsize=config["font_sizes"]["y_axis"])
+    else:
+        axs[0].set_ylabel('$g_1^{^{3}He}/F_1^{^{3}He}$', fontsize=config["font_sizes"]["y_axis"])
     axs[0].set_ylim(-0.04, 0.04)
     axs[0].legend(fontsize=config["font_sizes"]["legend"], frameon=config["legend"]["frame_on"])
 

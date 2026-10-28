@@ -32,7 +32,7 @@ from dis_fit_data_sources import (
 from dis_fit_models import derive_dis_fit_tag, evaluate_dis_fit, normalize_dis_fit_model
 from functions import get_quad_nucl_curve_k, normalize_bw_k_curve_mode
 from nachtmann_analysis import validate_nachtmann_q2_configuration
-from utility import generated_output_date_prefix, prefix_generated_output_name, project_path, show_pdf_with_evince
+from utility import generated_output_date_prefix, prefix_generated_output_name, project_path, show_pdf_with_evince, src_path
 
 ##################################################################################################################################################
 
@@ -70,7 +70,8 @@ DIS_DATA_MODE = "source_group"
 # DIS_SOURCE_GROUP = "full_legacy_mingyu"
 # DIS_SOURCE_GROUP = "full_current_all_diagnostic"
 # DIS_SOURCE_GROUP = DEFAULT_SOURCE_GROUP
-DIS_SOURCE_GROUP = "full_current_global"
+# DIS_SOURCE_GROUP = "proton_pilot"
+DIS_SOURCE_GROUP = "proton_pilot"
 
 # Source-aware DIS W-cut variants:
 # DIS_W_MIN = 2.0
@@ -109,7 +110,10 @@ DIS_FIT_MODEL = "quad_alpha"
 # ANALYSIS_SCOPE = "full"
 # ANALYSIS_SCOPE = "dis_only"
 # ANALYSIS_SCOPE = "dis"
-ANALYSIS_SCOPE = "full"
+ANALYSIS_SCOPE = "dis"
+
+# Nachtmann comparison variants:
+ENABLE_NACHTMANN_COMPARISON = False
 
 # Requested normalized display-bin Q2 values in GeV^2. The data page selects
 # matching global Q2_labels bins; default complete-fit curves use these exact
@@ -164,9 +168,14 @@ def resolve_latest_current_dataset_path(suffix):
         )
     return matches[-1]
 
-
-DATASET_CURRENT_ALL_PATH = resolve_latest_current_dataset_path("all")
-DATASET_CURRENT_DIS_PATH = resolve_latest_current_dataset_path("dis")
+# Source-group mode obtains its input files from the source manifest.
+# The standalone A1n files are needed only for the legacy/current loader.
+if DIS_DATA_MODE == "source_group":
+    DATASET_CURRENT_ALL_PATH = None
+    DATASET_CURRENT_DIS_PATH = None
+else:
+    DATASET_CURRENT_ALL_PATH = resolve_latest_current_dataset_path("all")
+    DATASET_CURRENT_DIS_PATH = resolve_latest_current_dataset_path("dis")
 
 DATASET_MODE = normalize_dataset_mode(DATASET_MODE)
 DIS_DATA_MODE = str(DIS_DATA_MODE).strip().lower()
@@ -569,7 +578,7 @@ def sanitize_bw_delta_par_df(delta_par_df):
             cleaned_row["gamma.err"] = abs(cleaned_row["gamma.err"])
 
         cleaned_rows.append(cleaned_row)
-
+    print("cleaned_rows", cleaned_rows)
     if not cleaned_rows:
         raise RuntimeError(
             "No usable resonance Breit-Wigner rows remained after sanitizing the fit results."
@@ -628,6 +637,15 @@ def load_analysis_data(analysis_scope):
         if DIS_DATA_MODE == "source_group"
         else DIS_SOURCE_GROUP
     )
+    if resolved_source_group == "proton_pilot":
+        selected_manifest = src_path("source_manifest_proton_dis.json")
+    else:
+        selected_manifest = src_path("source_manifest_3he_dis.json")
+
+    if not os.path.isfile(selected_manifest):
+        raise FileNotFoundError(
+            f"Requested analysis manifest does not exist: {selected_manifest}"
+        )
     load_data_kwargs = {
         "dataset_mode": DATASET_MODE,
         "analysis_scope": analysis_scope,
@@ -636,7 +654,9 @@ def load_analysis_data(analysis_scope):
         "dis_w_min": DIS_W_MIN if DIS_DATA_MODE == "source_group" else None,
         "dis_uncut_source_keys": DIS_UNCUT_SOURCE_KEYS if DIS_DATA_MODE == "source_group" else None,
         "dis_current_source": DIS_CURRENT_SOURCE if DIS_DATA_MODE == "source_group" else "all_cut",
-        "manifest_path": "source_manifest_proton_dis.json"
+        # "target": "3he" if resolved_source_group != "proton_pilot" else "proton",
+        "manifest_path": selected_manifest,
+        # "manifest_path": "source_manifest_proton_dis.json",
     }
     if DATASET_MODE == "current":
         load_data_kwargs.update(
@@ -733,19 +753,20 @@ def run_analysis(analysis_scope):
         quad_fit_err = fit_error(x, q2, dis_fit_params["par_quad"], dis_fit_params["par_err_quad"], dis_fit_params["corr_quad"], dis_fit_params["partials"])
 
         # Plot dis fit vs x
-        plot_dis_x(x, dis_fit_curve, quad_fit_err, dis_fit_params, dis_df, pdf)
+        plot_dis_x(x, dis_fit_curve, quad_fit_err, dis_fit_params, dis_df, pdf, resolved_source_group=resolved_source_group if DIS_DATA_MODE == "source_group" else None)
 
         if analysis_scope == "dis_only":
             # Keep the standalone Nachtmann data page as the final DIS-only
             # PDF page, after every regular DIS output.
-            create_nachtmann_data_only_outputs(
-                g1f1_df,
-                ANALYSIS_TAG,
-                pdf,
-                mode_label,
-                requested_q2_values=NACHTMANN_Q2_VALUES,
-                q2_match_tolerance=NACHTMANN_Q2_MATCH_TOLERANCE,
-            )
+            if ENABLE_NACHTMANN_COMPARISON:
+                nachtmann_data_result = create_nachtmann_data_only_outputs(
+                    g1f1_df,
+                    ANALYSIS_TAG,
+                    pdf,
+                    mode_label,
+                    requested_q2_values=NACHTMANN_Q2_VALUES,
+                    q2_match_tolerance=NACHTMANN_Q2_MATCH_TOLERANCE,
+                )
             print(
                 f"[{mode_label}] Skipping Nachtmann complete-fit comparison in dis_only scope "
                 "because the resonance and transition stages were not executed."
@@ -834,6 +855,7 @@ def run_analysis(analysis_scope):
 
         print(f"[{mode_label}] Stage: Resonance Breit-Wigner fits")
         delta_par_df = get_res_fit(k_init, gamma_init, mass_init, bw_w_lims, bw_res_df, pdf)
+        print("Total row count:", len(bw_res_df))
         delta_par_df = sanitize_bw_delta_par_df(delta_par_df)
 
         # Plot k, gamma, M
@@ -941,35 +963,37 @@ def run_analysis(analysis_scope):
 
         # Append standalone Nachtmann pages after every established fit/grid
         # page so they remain the final pages of g1f1_fits.pdf.
-        nachtmann_data_result = create_nachtmann_data_only_outputs(
-            g1f1_df,
-            ANALYSIS_TAG,
-            pdf,
-            mode_label,
-            requested_q2_values=NACHTMANN_Q2_VALUES,
-            q2_match_tolerance=NACHTMANN_Q2_MATCH_TOLERANCE,
-        )
-        create_nachtmann_complete_fit_outputs(
-            nachtmann_data_result,
-            ANALYSIS_TAG,
-            pdf,
-            mode_label,
-            dis_fit_params,
-            dis_transition_fit,
-            bw_fit_params["k params"]["nucl_par"],
-            bw_fit_params["k params"]["nucl_curve_err"],
-            bw_fit_params["gamma params"]["nucl_par"],
-            bw_fit_params["gamma params"]["nucl_curve_err"],
-            bw_fit_params["mass params"]["nucl_par"],
-            bw_fit_params["mass params"]["nucl_curve_err"],
-            bw_fit_params["k params"]["P_vals"],
-            bw_fit_params["gamma params"]["P_vals"],
-            bw_fit_params["mass params"]["P_vals"],
-            full_w_max=full_w_max,
-            q2_override=NACHTMANN_COMPLETE_FIT_Q2_VALUES,
-            w_min=w_min,
-            quad_nucl_curve_k_func=BW_K_CURVE_FUNC,
-        )
+
+        if ENABLE_NACHTMANN_COMPARISON:
+            nachtmann_data_result = create_nachtmann_data_only_outputs(
+                g1f1_df,
+                ANALYSIS_TAG,
+                pdf,
+                mode_label,
+                requested_q2_values=NACHTMANN_Q2_VALUES,
+                q2_match_tolerance=NACHTMANN_Q2_MATCH_TOLERANCE,
+            )
+            create_nachtmann_complete_fit_outputs(
+                nachtmann_data_result,
+                ANALYSIS_TAG,
+                pdf,
+                mode_label,
+                dis_fit_params,
+                dis_transition_fit,
+                bw_fit_params["k params"]["nucl_par"],
+                bw_fit_params["k params"]["nucl_curve_err"],
+                bw_fit_params["gamma params"]["nucl_par"],
+                bw_fit_params["gamma params"]["nucl_curve_err"],
+                bw_fit_params["mass params"]["nucl_par"],
+                bw_fit_params["mass params"]["nucl_curve_err"],
+                bw_fit_params["k params"]["P_vals"],
+                bw_fit_params["gamma params"]["P_vals"],
+                bw_fit_params["mass params"]["P_vals"],
+                full_w_max=full_w_max,
+                q2_override=NACHTMANN_COMPLETE_FIT_Q2_VALUES,
+                w_min=w_min,
+                quad_nucl_curve_k_func=BW_K_CURVE_FUNC,
+            )
 
     return outputpdf
 

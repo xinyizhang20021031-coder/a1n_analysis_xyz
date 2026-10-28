@@ -191,7 +191,7 @@ def _prepare_g1f1_df(g1f1_df, excluded_labels=None):
     g1f1_df = _with_nachtmann_x(g1f1_df)
 
     print("Columns:", g1f1_df.columns.tolist())
-
+    # print("Details of g1f1_df:", g1f1_df.head())
     unique_q2 = sorted(g1f1_df["Q2"].dropna().unique())
     print("\nUnique Q2 values after cleaning:", unique_q2)
 
@@ -508,6 +508,7 @@ def load_data(dataset_mode="legacy", g1f1_current_path=None, dis_current_path=No
         )
 
     if dis_data_mode == "source_group":
+        # manifest = load_source_manifest(target=target, path=manifest_path)
         manifest = load_source_manifest(manifest_path or "source_manifest_3he_dis.json")
         source_group = resolve_source_group_name(dataset_mode, analysis_scope, dis_source_group or DEFAULT_SOURCE_GROUP)
         bundle = build_3he_g1f1_group_bundle(
@@ -527,7 +528,20 @@ def load_data(dataset_mode="legacy", g1f1_current_path=None, dis_current_path=No
         g1f1_df.attrs["source_group_metadata"] = source_metadata
         dis_df.attrs["source_group_metadata"] = source_metadata
 
-        _legacy_g1f1_df, g2f1_df, a1_df, a2_df, _legacy_dis_df = _load_legacy_fit_support(analysis_scope)
+        if source_group == "proton_pilot" and analysis_scope == "dis_only":
+            # The proton DIS fit only requires g1f1_df and dis_df.
+            # Do not load unrelated 3He support data.
+            g2f1_df = _empty_frame(EMPTY_FRAME_COLUMNS["g2f1"])
+            a1_df = _empty_frame(EMPTY_FRAME_COLUMNS["a1"])
+            a2_df = _empty_frame(EMPTY_FRAME_COLUMNS["a2"])
+        else:
+            (
+                _legacy_g1f1_df,
+                g2f1_df,
+                a1_df,
+                a2_df,
+                _legacy_dis_df,
+            ) = _load_legacy_fit_support(analysis_scope)
         _print_source_group_splash(
             dataset_mode,
             analysis_scope,

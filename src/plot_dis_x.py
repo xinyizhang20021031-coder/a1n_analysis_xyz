@@ -18,8 +18,8 @@ from utility import src_path
 
 ##################################################################################################################################################
 
-def plot_dis_x(x, dis_fit_curve, quad_fit_err, dis_fit_params, dis_df, pdf):
-
+def plot_dis_x(x, dis_fit_curve, quad_fit_err, dis_fit_params, dis_df, pdf, resolved_source_group=None):
+    print(f"Plotting DIS fit vs x for source group: {resolved_source_group}")
     # Load configuration
     with open(src_path("config.json"), "r") as f:
         config = json.load(f)
@@ -71,7 +71,10 @@ def plot_dis_x(x, dis_fit_curve, quad_fit_err, dis_fit_params, dis_df, pdf):
 
     # Set labels and tick sizes
     ax1.set_xlabel("X", fontsize=config["font_sizes"]["x_axis"])
-    ax1.set_ylabel('$g_1^{^{3}He}/F_1^{^{3}He}$', fontsize=config["font_sizes"]["y_axis"])
+    if resolved_source_group is "proton_pilot":
+        ax1.set_ylabel('$g_1^{p}/F_1^{p}$', fontsize=config["font_sizes"]["y_axis"])
+    else:
+        ax1.set_ylabel('$g_1^{^{3}He}/F_1^{^{3}He}$', fontsize=config["font_sizes"]["y_axis"])
     ax1.tick_params(axis='both', which='major', labelsize=config["font_sizes"]["ticks"])
 
     # Grid settings
@@ -85,7 +88,8 @@ def plot_dis_x(x, dis_fit_curve, quad_fit_err, dis_fit_params, dis_df, pdf):
     # Legend settings
     ax1.legend(fontsize=config["font_sizes"]["legend"], frameon=config["legend"]["frame_on"], loc=config["legend"]["location"])
 
-    ax1.set_ylim(-0.04, 0.04)
+    # ax1.set_ylim(-0.04, 0.04)
+    ax1.set_ylim(-1.00, 1.00)
     
     # Adjust layout
     plt.tight_layout()
